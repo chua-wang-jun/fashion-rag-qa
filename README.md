@@ -4,7 +4,7 @@
 
 ## 项目亮点
 
-- **本地知识库驱动**：基于上传的 TXT 文档构建 Chroma 向量库，回答优先依据本地资料。
+- **多格式知识库**：支持 TXT、Word（DOCX）和 PDF 文档，提取文本后构建 Chroma 向量库。
 - **双链路设计**：离线完成文档解析、切分与向量化；在线完成语义检索、上下文拼接与流式生成。
 - **动态知识更新**：通过 Streamlit 上传页面管理知识文档，并使用 MD5 避免重复入库。
 - **多轮对话**：使用 `RunnableWithMessageHistory` 和文件会话存储保存上下文。
@@ -15,7 +15,7 @@
 
 ```mermaid
 flowchart LR
-    A[本地 TXT 知识文档] --> B[文档切分]
+    A[TXT / DOCX / PDF 知识文档] --> B[文本提取与文档切分]
     B --> C[Embedding 向量化]
     C --> D[(Chroma 向量库)]
 
@@ -45,6 +45,7 @@ RAG项目案例/
 │   ├── app_file_uploader.py     # 知识库上传页面
 │   ├── app_qa.py                # 智能问答页面
 │   ├── config_data.py           # 模型、切分与向量库配置
+│   ├── document_loader.py       # TXT、DOCX、PDF 文本提取
 │   ├── knowledge_base.py        # 文档切分、向量化与去重入库
 │   ├── rag.py                   # RAG 检索与生成链
 │   ├── vector_stores.py         # Chroma 检索器封装
@@ -118,7 +119,7 @@ cd "D:\RAG项目案例\RAG项目"
 ..\.venv\Scripts\python.exe -m streamlit run app_file_uploader.py --server.port 8502
 ```
 
-访问 `http://localhost:8502`，上传 UTF-8 编码的 TXT 文件。文件内容会经过切分、向量化并写入本地 Chroma 数据库；相同内容再次上传时会提示已存在。
+访问 `http://localhost:8502`，上传 TXT、Word（DOCX）或 PDF 文件。文档会先提取纯文本，再经过切分、向量化并写入本地 Chroma 数据库；相同内容再次上传时会提示已存在。
 
 示例知识文档位于 `RAG项目/data/`：
 
@@ -134,6 +135,7 @@ cd "D:\RAG项目案例\RAG项目"
 | --- | --- |
 | `chunk_size` | 文本切分块大小，当前为 150 |
 | `chunk_overlap` | 相邻文本块重叠长度，当前为 20 |
+| `embedding_batch_size` | 单次嵌入请求的文本数量，当前为 10，符合 DashScope 限制 |
 | `similarity_threshold` | 检索返回的文档数量，当前为 1 |
 | `collection_name` | Chroma 集合名称 |
 | `persist_directory` | Chroma 本地持久化目录 |
@@ -148,7 +150,9 @@ cd "D:\RAG项目案例\RAG项目"
 
 ## 注意事项
 
-- 当前上传入口一次仅接受一个 TXT 文件，并要求文件使用 UTF-8 编码。
+- 当前上传入口一次仅接受一个 TXT、DOCX 或 PDF 文件，文件大小上限为 10 MB。
+- Word 请使用 `.docx` 格式；旧版 `.doc` 需要先另存为 `.docx`。PDF 必须包含文本层，扫描版 PDF 需要先进行 OCR。
+- Word 与 PDF 中的图片、图表不会被识别；系统只提取可读取的文字和 Word 表格内容。
 - `chroma_db/`、`chat_history/` 和 `md5.text` 是本机运行数据，已被 `.gitignore` 排除，不会上传到 GitHub。
 - 示例代码使用固定会话 ID `user_001`。多人同时访问时可能共享历史记录，生产环境应按用户或浏览器会话生成唯一 ID。
 - 文件会话和本地向量库不适合直接用于高并发生产环境；如需部署，建议迁移到数据库、Redis 或托管向量服务，并增加鉴权、限流、日志脱敏和失败重试。
@@ -157,7 +161,7 @@ cd "D:\RAG项目案例\RAG项目"
 
 ## 后续可扩展方向
 
-- 支持 PDF、Markdown、Word 等文档格式以及批量上传。
+- 支持 Markdown、旧版 DOC、OCR 扫描件以及批量上传。
 - 加入 BM25 与向量召回的混合检索、重排序和相似度阈值过滤。
 - 增加引用来源展示、知识库管理后台和文档删除/更新能力。
 - 使用数据库保存会话，并实现按用户隔离的多会话管理。
