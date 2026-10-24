@@ -1,11 +1,11 @@
 import hashlib
 import os
-import config_data as config
-from langchain_chroma import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from datetime import datetime
 
+import config_data as config
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 def check_md5(md5_str:str):
@@ -50,9 +50,10 @@ class KnowledgeBaseService(object):
         self.chroma = Chroma(
             collection_name=config.collection_name,
             embedding_function=OpenAIEmbeddings(
-                model="text-embedding-v4",
-                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                check_embedding_ctx_length = False
+                model=config.embedding_model_name,
+                base_url=config.base_url,
+                check_embedding_ctx_length=False,
+                chunk_size=config.embedding_batch_size,
             ),
             persist_directory=config.persist_directory,
         )
@@ -64,27 +65,42 @@ class KnowledgeBaseService(object):
             length_function=len,
         )
 
-    def upload_by_str(self,data,file_name):
-        md5_hex=get_string_md5(data)
+    def upload_by_str(self, data, file_name):
+        if not data.strip():
+            return "文档内容为空，未写入知识库"
 
+        md5_hex = get_string_md5(data)
         if check_md5(md5_hex):
             return "内容已存在知识库中"
-        if len(data)>config.max_split_char_number:
-            knowledge_chunks:list[str]=self.spliter.split_text(data)
-        else:
-            knowledge_chunks=[data]
-        metadata={
-            "source":file_name,
-            "create_time":datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "operator":"小王"
-        }
-        self.chroma.add_texts(
-            knowledge_chunks,
-            metadata=[metadata for _ in knowledge_chunks],
-        )
-        save_md5(md5_hex)
 
-        return "内容已经成功入库"
+        if len(data) > config.max_split_char_number:
+            chunks = self.spliter.split_text(data)
+        else:
+            chunks = [data]
+
+        knowledge_chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
+        if not knowledge_chunks:
+            return "文档中没有可入库的文字内容"
+
+        metadata = {
+            "source": file_name,
+            "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "operator": "小王",
+        }
+
+        batch_size = max(1, int(config.embedding_batch_size))
+        for start in range(0, len(knowledge_chunks), batch_size):
+            batch = knowledge_chunks[start:start + batch_size]
+            end = start + len(batch)
+            ids = [f"{md5_hex}-{index:05d}" for index in range(start, end)]
+            self.chroma.add_texts(
+                texts=batch,
+                metadatas=[metadata.copy() for _ in batch],
+                ids=ids,
+            )
+
+        save_md5(md5_hex)
+        return f"内容已经成功入库，共 {len(knowledge_chunks)} 个文本片段"
 
 
 
