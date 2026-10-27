@@ -66,7 +66,7 @@ RAG项目案例/
 
 ## 快速开始
 
-### 1. 安装依赖
+### 1. 安装依赖（PowerShell）
 
 ```powershell
 cd "D:\RAG项目案例"
@@ -126,6 +126,59 @@ cd "D:\RAG项目案例\RAG项目"
 - `尺码推荐.txt`
 - `洗涤养护.txt`
 - `颜色选择.txt`
+
+### 5. CMD（命令提示符）运行方式
+
+如果你的终端提示符类似 `D:\RAG项目案例>`，并且前面没有 `PS`，说明当前使用的是 CMD。CMD 不能执行 PowerShell 的 `$env:OPENAI_API_KEY` 语法，需要改用 `set`。
+
+#### 5.1 创建虚拟环境并安装依赖
+
+```cmd
+cd /d "D:\RAG项目案例"
+python -m venv .venv
+.venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
+```
+
+#### 5.2 设置 API Key
+
+```cmd
+set "OPENAI_API_KEY=你的 DashScope API Key"
+```
+
+检查环境变量是否设置成功，不要直接输出真实 Key：
+
+```cmd
+if defined OPENAI_API_KEY (echo API Key 已设置) else (echo API Key 未设置)
+```
+
+`set` 只在当前 CMD 窗口生效。关闭窗口后，需要重新设置；如果同时打开多个终端运行两个页面，每个终端都应设置一次。
+
+#### 5.3 启动知识库上传页面
+
+```cmd
+cd /d "D:\RAG项目案例\RAG项目"
+..\.venv\Scripts\python.exe -m streamlit run app_file_uploader.py --server.port 8502
+```
+
+#### 5.4 启动问答页面
+
+另开一个 CMD 窗口：
+
+```cmd
+cd /d "D:\RAG项目案例"
+set "OPENAI_API_KEY=你的 DashScope API Key"
+cd RAG项目
+..\.venv\Scripts\python.exe -m streamlit run app_qa.py
+```
+
+CMD 与 PowerShell 的主要区别：
+
+| 操作 | PowerShell | CMD |
+| --- | --- | --- |
+| 设置环境变量 | `$env:OPENAI_API_KEY = "Key"` | `set "OPENAI_API_KEY=Key"` |
+| 切换盘符目录 | `cd "D:\RAG项目案例"` | `cd /d "D:\RAG项目案例"` |
+| 激活虚拟环境 | `.\.venv\Scripts\Activate.ps1` | `.venv\Scripts\activate.bat` |
 
 ## 关键配置
 
