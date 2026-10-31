@@ -1,5 +1,6 @@
 import hashlib
 import os
+from collections import Counter
 from datetime import datetime
 
 import config_data as config
@@ -71,7 +72,7 @@ class KnowledgeBaseService(object):
 
         md5_hex = get_string_md5(data)
         if check_md5(md5_hex):
-            return "内容已存在知识库中"
+            return "【加入失败】内容已存在知识库中"
 
         if len(data) > config.max_split_char_number:
             chunks = self.spliter.split_text(data)
@@ -101,6 +102,40 @@ class KnowledgeBaseService(object):
 
         save_md5(md5_hex)
         return f"内容已经成功入库，共 {len(knowledge_chunks)} 个文本片段"
+
+    def get_library_stats(self):
+        """汇总当前向量库的文档数、片段数和最近入库时间。"""
+        result = self.chroma.get(include=["metadatas"])
+        ids = result.get("ids") or []
+        metadatas = result.get("metadatas") or []
+
+        source_counts = Counter()
+        source_times = {}
+        for metadata in metadatas:
+            metadata = metadata or {}
+            source = metadata.get("source") or "未命名文档"
+            source_counts[source] += 1
+            create_time = metadata.get("create_time") or ""
+            if create_time > source_times.get(source, ""):
+                source_times[source] = create_time
+
+        documents = [
+            {
+                "source": source,
+                "chunks": chunk_count,
+                "last_update": source_times.get(source, "—"),
+            }
+            for source, chunk_count in source_counts.items()
+        ]
+        documents.sort(key=lambda item: item["last_update"], reverse=True)
+        last_update = max(source_times.values(), default="—")
+
+        return {
+            "chunk_count": len(ids),
+            "document_count": len(source_counts),
+            "last_update": last_update or "—",
+            "documents": documents,
+        }
 
 
 

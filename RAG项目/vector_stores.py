@@ -1,5 +1,3 @@
-from idlelib import search
-from pydoc import resolve
 
 from langchain_chroma import Chroma
 import config_data as config
